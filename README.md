@@ -7,7 +7,7 @@
 </p>
 </div>
 
-![teaser-1](https://github.com/user-attachments/assets/2ff30874-8e47-40e7-aa74-5016bdaa5283)
+![teaser-1](assets/teaser.gif)
 
 <div align="center">
 
