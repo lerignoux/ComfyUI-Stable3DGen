@@ -7,8 +7,8 @@
 </p>
 </div>
 
-![image](https://github.com/user-attachments/assets/7170101f-fc40-44f3-912e-534d10d6804e)
- 
+![teaser-1](https://github.com/user-attachments/assets/2ff30874-8e47-40e7-aa74-5016bdaa5283)
+
 <div align="center">
 
 [![Website](https://raw.githubusercontent.com/prs-eth/Marigold/main/doc/badges/badge-website.svg)](https://stable-x.github.io/Hi3DGen/) 
