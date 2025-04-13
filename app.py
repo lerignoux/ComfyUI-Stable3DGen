@@ -277,5 +277,5 @@ if __name__ == "__main__":
         normal_predictor = torch.hub.load("hugoycj/StableNormal", "StableNormal_turbo", trust_repo=True, yoso_version='yoso-normal-v1-8-1', local_cache_dir='./weights')    
 
     # Launch the app
-    demo.launch(share=False, server_name="0.0.0.0", server_port=6073, auth=("aabb", "aabb"))
+    demo.launch(share=False, server_name="0.0.0.0")
 
