@@ -13,3 +13,4 @@ pillow
 tqdm
 scipy
 trimesh
+numpy==1.26.4
