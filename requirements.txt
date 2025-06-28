@@ -2,6 +2,7 @@
 diffusers>=0.28.0
 gradio>=4.32.1
 accelerate
+triton
 
 # For BirefNet
 kornia==0.8.0
@@ -15,3 +16,5 @@ scipy
 trimesh
 numpy==1.26.4
 scikit-image
+opencv-python
+einops
