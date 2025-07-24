@@ -31,6 +31,7 @@
 # This modified file is released under the same license.
 from typing import *
 from contextlib import contextmanager
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -199,7 +200,7 @@ class Hi3DGenPipeline(Pipeline):
         """Lazy loading of the BiRefNet model"""
         from transformers import AutoImageProcessor, Mask2FormerForUniversalSegmentation, AutoModelForImageSegmentation
         self.birefnet_model = AutoModelForImageSegmentation.from_pretrained(
-            'weights/BiRefNet',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../..', 'weights', 'BiRefNet'),
             trust_remote_code=True
         ).to(self.device)
         self.birefnet_model.eval()
