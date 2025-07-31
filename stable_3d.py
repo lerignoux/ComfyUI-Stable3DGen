@@ -20,9 +20,7 @@ log = logging.getLogger(__name__)
 
 
 MAX_SEED = numpy.iinfo(numpy.int32).max
-TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')
 WEIGHTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights')
-os.makedirs(TMP_DIR, exist_ok=True)
 os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
 # Initialize normal predictor
@@ -92,8 +90,8 @@ class Stable3DGenerate3D:
     A node to generate a Stable3D asset
     """
     def __init__(self):
-        self.output_dir = folder_paths.get_output_directory()
-        self.temp_dir = folder_paths.get_temp_directory()
+        self.output_directory = folder_paths.get_output_directory()
+        self.temp_directory = folder_paths.get_temp_directory()
         self.compress_level = 4
         pass
 
@@ -141,7 +139,7 @@ class Stable3DGenerate3D:
         }
 
     CATEGORY = "stable_3d_gen"
-    DESCRIPTION = "Generates a Stable 3D Gen mesh_prompt from an imput image"
+    DESCRIPTION = "Generates a Stable 3D Gen mesh from an imput image"
     FUNCTION = "generate_3d"
     INPUT_IS_LIST = False
     OUTPUT_NODE = True
@@ -206,58 +204,11 @@ class Stable3DGenerate3D:
             },
         )
         generated_mesh = outputs['mesh'][0]
+        saved_file = self.save_3d_asset(generated_mesh)
 
-        # Save outputs
-        import datetime
-        output_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        os.makedirs(os.path.join(TMP_DIR, output_id), exist_ok=True)
-        mesh_path = f"{TMP_DIR}/{output_id}/mesh.glb"
-
-        # Export mesh
-        trimesh_mesh = generated_mesh.to_trimesh(transform_pose=True)
-
-        trimesh_mesh.export(mesh_path)
-
-        return normal_image, mesh_path, mesh_path
+        return saved_file
 
         @classmethod
         def IS_CHANGED(s, images, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps):
+            # FIXME We should properly handle re-generation depending on the input parameters.
             return float("NaN")
-
-
-class Stable3DPreprocessMesh:
-    """
-    A node to generate a glb 3d Object from the Stable3D asset
-    """
-    def __init__(self):
-        self.output_dir = folder_paths.get_output_directory()
-        self.temp_dir = folder_paths.get_temp_directory()
-        self.compress_level = 4
-        pass
-
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "mesh_prompt": ("MESH_PROMPT", {
-                    "multiline": True,
-                    "default": "Mesh prompt",
-                    "tooltip": "The prompt to generate the mesh"
-                })
-            },
-        }
-
-    CATEGORY = "stable_3d_gen"
-    DESCRIPTION = "Generates a glb 3d Object from the Stable 3D mesh prompt"
-    FUNCTION = "preprocess_mesh"
-    INPUT_IS_LIST = True
-    OUTPUT_NODE = True
-    RETURN_NAMES = ("filename",)
-    RETURN_TYPES = ("STRING",)
-
-    def preprocess_mesh(self, mesh_prompt):
-        print("Processing mesh")
-        mesh_file = f"{mesh_prompt}.glb"
-        trimesh_mesh = trimesh.load_mesh(mesh_prompt)
-        trimesh_mesh.export(mesh_file)
-        return mesh_file
