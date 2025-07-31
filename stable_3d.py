@@ -7,21 +7,19 @@ import numpy
 import sys
 import torch
 import trimesh
+from huggingface_hub import snapshot_download
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 import folder_paths
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Stable3DGen'))
-
 from hi3dgen.pipelines import Hi3DGenPipeline
 
 log = logging.getLogger(__name__)
 
 
 MAX_SEED = numpy.iinfo(numpy.int32).max
-WEIGHTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights')
-os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
 # Initialize normal predictor
 """
@@ -47,43 +45,81 @@ except Exception as e:
         local_cache_dir='./weights'
     )
 """
-# Loads model to ~/.cache/torch/hub/
-normal_predictor = torch.hub.load("Stable-X/StableNormal", "StableNormal_turbo", trust_repo=True)
+
+class Stable3DLoadModels:
+    """
+    A node to load the models necessary for Stable3D
+    Node will download the models from huggingface or torch if missing.
+    """
+    def __init__(self):
+        self.weights_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights')
+        os.makedirs(self.weights_dir, exist_ok=True)
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "trellis_model": (
+                    "STRING",
+                    {
+                        "tooltip": "The trellis model to use",
+                        "default": "Stable-X/trellis-normal-v0-1"
+                    }
+                ),
+                "normal_model": (
+                    "STRING",
+                    {
+                        "tooltip": "The normal generation model",
+                        "default": "Stable-X/yoso-normal-v1-8-1"
+                    }
+                ),
+                "birefnet_model": (
+                    "STRING",
+                    {
+                        "default": "ZhengPeng7/BiRefNet",
+                        "tooltip": "the Birefnet model."
+                    }
+                )
+            },
+        }
+
+    CATEGORY = "stable_3d_gen"
+    DESCRIPTION = "Load the models necessary for Stable3D Gen"
+    FUNCTION = "load_models"
+    INPUT_IS_LIST = False
+    OUTPUT_NODE = False
+    RETURN_NAMES = ("Trellis model", "Normal predictor", "Birefnet model")
+    RETURN_TYPES = ("TRELLIS_MODEL", "STABLE3D_NORMAL", "STABLE3D_BIREFNET")
 
 
-def cache_weights(weights_dir: str) -> dict:
+def load_models(self, trellis_model, normal_model, birefnet_model):
     """
     Load weights locally if missing.
     Needs to be adapted to match ComfyUI Models storage
     """
-    import os
-    from huggingface_hub import snapshot_download
 
-    os.makedirs(weights_dir, exist_ok=True)
-    model_ids = [
-        "Stable-X/trellis-normal-v0-1",
-        "Stable-X/yoso-normal-v1-8-1",
-        "ZhengPeng7/BiRefNet",
-    ]
+    model_ids = [trellis_model, normal_model, birefnet_model]
     cached_paths = {}
+    loaded_models = []
     for model_id in model_ids:
         log.info(f"Caching weights for: {model_id}")
-        local_path = os.path.join(weights_dir, model_id.split("/")[-1])
+        local_path = os.path.join(self.weights_dir, model_id.split("/")[-1])
         if os.path.exists(local_path):
             log.info(f"Already cached at: {local_path}")
             cached_paths[model_id] = local_path
+            loaded_models.append(local_path)
             continue
         log.info(f"Downloading and caching model: {model_id}")
         local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(weights_dir, model_id.split("/")[-1]), force_download=False)
         cached_paths[model_id] = local_path
         log.info(f"Cached at: {local_path}")
 
+    # Loads model to ~/.cache/torch/hub/
+    normal_predictor = torch.hub.load("Stable-X/StableNormal", "StableNormal_turbo", trust_repo=True)
+
     # torch.hub.load('facebookresearch/dinov2', name, pretrained=True)
 
-    return cached_paths
-
-
-cache_weights(WEIGHTS_DIR)
+    return (loaded_models[0], normal_predictor, loaded_models[2])
 
 class Stable3DGenerate3D:
     """
@@ -99,6 +135,9 @@ class Stable3DGenerate3D:
     def INPUT_TYPES(s):
         return {
             "required": {
+                "trellis_model": ("TRELLIS_MODEL", ),
+                "normal_predictor": ("STABLE3D_NORMAL", ),
+                "birefnet_model": ("STABLE3D_BIREFNET", ),
                 "image": ("IMAGE",),
                 "seed": (
                     "INT",
@@ -164,6 +203,9 @@ class Stable3DGenerate3D:
 
     def generate_3d(
         self,
+        trellis_model,
+        normal_predictor,
+        birefnet_model,
         image,
         seed=-1,
         ss_guidance_strength=3,
