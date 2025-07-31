@@ -142,14 +142,17 @@ class Stable3DGenerate3D:
                 "seed": (
                     "INT",
                     {
-                        "tooltip": "The generation seed"
+                        "default": -1,
+                        "min": -1,
+                        "max": MAX_SEED,
+                        "tooltip": "The generation seed, use -1 for a random seed."
                     }
                 ),
                 "ss_guidance_strength": (
                     "INT",
                     {
                         "default": 3,
-                        "tooltip": "the titles for each slide."
+                        "tooltip": "The ss guidance strength"
                     }
                 ),
                 "ss_sampling_steps": (
@@ -157,7 +160,7 @@ class Stable3DGenerate3D:
                     {
                         "default": 50,
                         "step": 1,
-                        "tooltip": ""
+                        "tooltip": "The ss sampling steps. increasing the steps increase generation time"
                     }
                 ),
                 "slat_guidance_strength": (
@@ -171,7 +174,7 @@ class Stable3DGenerate3D:
                     "INT",
                     {
                         "default": 6,
-                        "tooltip": ""
+                        "tooltip": "The slat sampling steps. increasing the steps increase generation time"
                     }
                 )
             },
@@ -189,8 +192,8 @@ class Stable3DGenerate3D:
         """
         Save the 3d asset file to user output directory
         """
-        output_id = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
         if filename is None:
+            output_id = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
             filename = f"{output_id}_mesh.glb"
         if '.glb' not in filename:
             filename = f"{filename}.glb"
