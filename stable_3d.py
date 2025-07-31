@@ -6,6 +6,7 @@ import sys
 import torch
 from huggingface_hub import snapshot_download
 from PIL import Image
+from torchvision.transforms.functional import pil_to_tensor
 from transformers import AutoModelForImageSegmentation
 
 import folder_paths
@@ -56,60 +57,59 @@ class Stable3DLoadModels:
         }
 
     CATEGORY = "stable_3d_gen"
-    DESCRIPTION = "Load the models necessary for Stable3D Gen"
+    DESCRIPTION = "Download if necessary and load the models necessary for Stable3D Gen preprocessing and generation."
     FUNCTION = "load_models"
     INPUT_IS_LIST = False
     OUTPUT_NODE = False
     RETURN_NAMES = ("hi3dgen pipeline", "Normal predictor")
     RETURN_TYPES = ("HI3DGEN_PIPELINE", "STABLE3D_NORMAL")
 
-def load_birefnet_model(self, hi3dgen_pipeline, birefnet_model_name):
-    """
-    Custom birefnet model loader on the hi3dGen pipeline to customize model location
-    """
-    hi3dgen_pipeline.birefnet_model = AutoModelForImageSegmentation.from_pretrained(
-        os.path.join(self.weights_dir, 'BiRefNet'),
-        trust_remote_code=True
-    ).to(hi3dgen_pipeline.device)
-    hi3dgen_pipeline.birefnet_model.eval()
-    return
+    def load_birefnet_model(self, hi3dgen_pipeline, birefnet_model_name):
+        """
+        Custom birefnet model loader on the hi3dGen pipeline to customize model location
+        """
+        hi3dgen_pipeline.birefnet_model = AutoModelForImageSegmentation.from_pretrained(
+            os.path.join(self.models_path, birefnet_model_name),
+            trust_remote_code=True
+        ).to(hi3dgen_pipeline.device)
+        hi3dgen_pipeline.birefnet_model.eval()
+        return
 
-def download_models(self, model_id):
-    log.info(f"Caching weights for: {model_id}")
-    local_path = os.path.join(self.models_path, model_id)
-    if os.path.exists(local_path):
-        log.info(f"Already cached at: {local_path}")
+    def download_model(self, model_id):
+        log.info(f"Caching weights for: {model_id}")
+        local_path = os.path.join(self.models_path, model_id)
+        if os.path.exists(local_path):
+            log.info(f"Already cached at: {local_path}")
+            return local_path
+        log.info(f"Downloading and caching model: {model_id} to trellis model folder")
+        local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
+        log.info(f"Cached at: {local_path}")
         return local_path
-    log.info(f"Downloading and caching model: {model_id} to trellis model path")
-    local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
-    log.info(f"Cached at: {local_path}")
-    return local_path
 
-def load_models(self, trellis_model, normal_model, birefnet_model):
-    """
-    Load weights locally if missing.
-    Models are downloaded in ComfyUI/models/trellis folder
-    torch libraries are downloaded in ~/.cache/torch/hub/
-    """
+    def load_models(self, trellis_model, normal_model, birefnet_model):
+        """
+        Load weights locally if missing.
+        Models are downloaded in ComfyUI/models/trellis folder
+        torch libraries are downloaded in ~/.cache/torch/hub/
+        """
 
-    model_ids = [trellis_model, normal_model, birefnet_model]
-    loaded_models = []
-    for model_id in model_ids:
-        loaded_models.append(self.download_model(model_id))
-    # Loads pedictor model to ~/.cache/torch/hub/
-    normal_predictor = torch.hub.load("Stable-X/StableNormal", "StableNormal_turbo", trust_repo=True)
+        model_ids = [trellis_model, normal_model, birefnet_model]
+        loaded_models = []
+        for model_id in model_ids:
+            loaded_models.append(self.download_model(model_id))
+        # Loads yoso pedictor model to ~/models/trellis and StableNormal_turbo predictor library to ~/.cache/torch/hub/
+        yozo_model_folder = os.path.join(self.models_path, "Stable-X")
+        normal_predictor = torch.hub.load("hugoycj/StableNormal", "StableNormal_turbo", trust_repo=True, yoso_version='yoso-normal-v1-8-1', local_cache_dir=yozo_model_folder)
+        # download dinov2 feature detection model and library to ~/.cache/torch/hub/
+        torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_reg', pretrained=True)
 
-    # download dinov2 feature detection model to ~/.cache/torch/hub/
-    torch.hub.load('facebookresearch/dinov2', 'dinov2_vitg14', pretrained=True)
-    torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14', pretrained=True)
+        trellis_folder = folder_paths.get_folder_paths("trellis")[0]
+        hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained(os.path.join(trellis_folder, trellis_model))
+        hi3dgen_pipeline.cuda()
 
-    trellis_folder = folder_paths.get_folder_paths("trellis")[0]
-    hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained(os.path.join(trellis_folder, trellis_model))
-    hi3dgen_pipeline.cuda()
+        self.load_birefnet_model(hi3dgen_pipeline, birefnet_model)
 
-    self.load_birefnet_model(hi3dgen_pipeline)
-
-    return (hi3dgen_pipeline, normal_predictor)
+        return (hi3dgen_pipeline, normal_predictor)
 
 
 class Stable3DPreprocessImage:
