@@ -6,7 +6,7 @@ import sys
 import torch
 from huggingface_hub import snapshot_download
 from PIL import Image
-from PIL.PngImagePlugin import PngInfo
+from transformers import AutoModelForImageSegmentation
 
 import folder_paths
 
@@ -23,8 +23,9 @@ class Stable3DLoadModels:
     Node will download the models from huggingface or torch if missing.
     """
     def __init__(self):
-        self.weights_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights')
-        os.makedirs(self.weights_dir, exist_ok=True)
+        self.models_path = os.path.join(folder_paths.models_dir, "trellis")
+        folder_paths.add_model_folder_path("trellis", self.models_path)
+        os.makedirs(self.models_path, exist_ok=True)
 
     @classmethod
     def INPUT_TYPES(s):
@@ -59,38 +60,56 @@ class Stable3DLoadModels:
     FUNCTION = "load_models"
     INPUT_IS_LIST = False
     OUTPUT_NODE = False
-    RETURN_NAMES = ("Trellis model", "Normal predictor", "Birefnet model")
-    RETURN_TYPES = ("TRELLIS_MODEL", "STABLE3D_NORMAL", "STABLE3D_BIREFNET")
+    RETURN_NAMES = ("hi3dgen pipeline", "Normal predictor")
+    RETURN_TYPES = ("HI3DGEN_PIPELINE", "STABLE3D_NORMAL")
 
+def load_birefnet_model(self, hi3dgen_pipeline, birefnet_model_name):
+    """
+    Custom birefnet model loader on the hi3dGen pipeline to customize model location
+    """
+    hi3dgen_pipeline.birefnet_model = AutoModelForImageSegmentation.from_pretrained(
+        os.path.join(self.weights_dir, 'BiRefNet'),
+        trust_remote_code=True
+    ).to(hi3dgen_pipeline.device)
+    hi3dgen_pipeline.birefnet_model.eval()
+    return
+
+def download_models(self, model_id):
+    log.info(f"Caching weights for: {model_id}")
+    local_path = os.path.join(self.models_path, model_id)
+    if os.path.exists(local_path):
+        log.info(f"Already cached at: {local_path}")
+        return local_path
+    log.info(f"Downloading and caching model: {model_id} to trellis model path")
+    local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
+    log.info(f"Cached at: {local_path}")
+    return local_path
 
 def load_models(self, trellis_model, normal_model, birefnet_model):
     """
     Load weights locally if missing.
-    Needs to be adapted to match ComfyUI Models storage
+    Models are downloaded in ComfyUI/models/trellis folder
+    torch libraries are downloaded in ~/.cache/torch/hub/
     """
 
     model_ids = [trellis_model, normal_model, birefnet_model]
-    cached_paths = {}
     loaded_models = []
     for model_id in model_ids:
-        log.info(f"Caching weights for: {model_id}")
-        local_path = os.path.join(self.weights_dir, model_id.split("/")[-1])
-        if os.path.exists(local_path):
-            log.info(f"Already cached at: {local_path}")
-            cached_paths[model_id] = local_path
-            loaded_models.append(local_path)
-            continue
-        log.info(f"Downloading and caching model: {model_id}")
-        local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.weights_dir, model_id.split("/")[-1]), force_download=False)
-        cached_paths[model_id] = local_path
-        log.info(f"Cached at: {local_path}")
-
-    # Loads model to ~/.cache/torch/hub/
+        loaded_models.append(self.download_model(model_id))
+    # Loads pedictor model to ~/.cache/torch/hub/
     normal_predictor = torch.hub.load("Stable-X/StableNormal", "StableNormal_turbo", trust_repo=True)
 
-    # torch.hub.load('facebookresearch/dinov2', name, pretrained=True)
+    # download dinov2 feature detection model to ~/.cache/torch/hub/
+    torch.hub.load('facebookresearch/dinov2', 'dinov2_vitg14', pretrained=True)
+    torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14', pretrained=True)
 
-    return (loaded_models[0], normal_predictor, loaded_models[2])
+    trellis_folder = folder_paths.get_folder_paths("trellis")[0]
+    hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained(os.path.join(trellis_folder, trellis_model))
+    hi3dgen_pipeline.cuda()
+
+    self.load_birefnet_model(hi3dgen_pipeline)
+
+    return (hi3dgen_pipeline, normal_predictor)
 
 
 class Stable3DPreprocessImage:
@@ -143,7 +162,7 @@ class Stable3DPreprocessImage:
 
         # FIXME We should properly handle batch here.
         image = hi3dgen_pipeline.preprocess_image(pil_image, resolution=512)
-        normal_image = normal_predictor(pil_image, resolution=512, match_input_resolution=True, data_type='object')
+        normal_image = normal_predictor(pil_image)
 
         self.save_normal_image(normal_image)
 
@@ -164,7 +183,7 @@ class Stable3DGenerate3D:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "trellis_model": ("TRELLIS_MODEL", ),
+                "hi3dgen_pipeline": ("HI3DGEN_PIPELINE", ),
                 "normal_image": ("IMAGE",),
                 "seed": (
                     "INT",
@@ -233,7 +252,7 @@ class Stable3DGenerate3D:
 
     def generate_3d(
         self,
-        trellis_model,
+        hi3dgen_pipeline,
         normal_image,
         seed=-1,
         ss_guidance_strength=3,
@@ -241,14 +260,8 @@ class Stable3DGenerate3D:
         slat_guidance_strength=3,
         slat_sampling_steps=6
     ):
-        if normal_image is None:
-            return None, None, None
-
         if seed == -1:
             seed = numpy.random.randint(0, MAX_SEED)
-
-        hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("custom_nodes/ComfyUI-Stable3DGen/weights/trellis-normal-v0-1")
-        hi3dgen_pipeline.cuda()
 
         outputs = hi3dgen_pipeline.run(
             normal_image,
