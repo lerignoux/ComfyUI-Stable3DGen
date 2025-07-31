@@ -18,3 +18,4 @@ numpy==1.26.4
 scikit-image
 opencv-python
 einops
+spconv-cu120
