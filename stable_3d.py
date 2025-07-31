@@ -1,12 +1,9 @@
 import datetime
-import io
-import json
 import logging
 import os
 import numpy
 import sys
 import torch
-import trimesh
 from huggingface_hub import snapshot_download
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -17,34 +14,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Stable
 from hi3dgen.pipelines import Hi3DGenPipeline
 
 log = logging.getLogger(__name__)
-
-
 MAX_SEED = numpy.iinfo(numpy.int32).max
 
-# Initialize normal predictor
-"""
-predictor_model = os.path.join(torch.hub.get_dir(), 'hugoycj_StableNormal_main')
-log.info(f"Loading torch predictor model: {predictor_model}")
-try:
-    normal_predictor = torch.hub.load(
-        predictor_model,
-        "StableNormal_turbo",
-        yoso_version='yoso-normal-v1-8-1',
-        source='local',
-        local_cache_dir='./weights',
-        pretrained=True
-    )
-except Exception as e:
-    new_model = "hugoycj/StableNormal"
-    log.info(f"Failed loading local torch {predictor_model} downloading {new_model}, {e}")
-    normal_predictor = torch.hub.load(
-        "hugoycj/StableNormal",
-        "StableNormal_turbo",
-        trust_repo=True,
-        yoso_version='yoso-normal-v1-8-1',
-        local_cache_dir='./weights'
-    )
-"""
 
 class Stable3DLoadModels:
     """
@@ -110,7 +81,7 @@ def load_models(self, trellis_model, normal_model, birefnet_model):
             loaded_models.append(local_path)
             continue
         log.info(f"Downloading and caching model: {model_id}")
-        local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(weights_dir, model_id.split("/")[-1]), force_download=False)
+        local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.weights_dir, model_id.split("/")[-1]), force_download=False)
         cached_paths[model_id] = local_path
         log.info(f"Cached at: {local_path}")
 
