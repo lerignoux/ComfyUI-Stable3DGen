@@ -83,7 +83,6 @@ class Stable3DLoadModels:
             return local_path
         log.info(f"Downloading and caching model: {model_id} to trellis model folder")
         local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
-        log.info(f"Cached at: {local_path}")
         return local_path
 
     def load_models(self, trellis_model, normal_model, birefnet_model):
@@ -154,7 +153,7 @@ class Stable3DPreprocessImage:
         path = os.path.join(self.temp_directory, filename)
 
         normal_image.save(path)
-        log.info(f"normal_image saved as {path}")
+        log.debug(f"normal_image saved as {path}")
         return path
 
     def preprocess_image(self, hi3dgen_pipeline, normal_predictor, image):
@@ -187,7 +186,7 @@ class Stable3DGenerate3D:
         return {
             "required": {
                 "hi3dgen_pipeline": ("HI3DGEN_PIPELINE", ),
-                "normal_image": ("IMAGE",),
+                "normal_images": ("IMAGE",),
                 "seed": (
                     "INT",
                     {
@@ -247,6 +246,7 @@ class Stable3DGenerate3D:
         if '.glb' not in filename:
             filename = f"{filename}.glb"
         mesh_path = os.path.join(self.output_directory, filename)
+        log.info(f"Saving 3d mesh to {mesh_path}.")
 
         trimesh_mesh = generated_mesh.to_trimesh(transform_pose=True)
         trimesh_mesh.export(mesh_path)
@@ -256,7 +256,7 @@ class Stable3DGenerate3D:
     def generate_3d(
         self,
         hi3dgen_pipeline,
-        normal_image,
+        normal_images,
         seed=-1,
         ss_guidance_strength=3,
         ss_sampling_steps=50,
@@ -266,24 +266,31 @@ class Stable3DGenerate3D:
         if seed == -1:
             seed = numpy.random.randint(0, MAX_SEED)
 
-        outputs = hi3dgen_pipeline.run(
-            normal_image,
-            seed=seed,
-            formats=["mesh",],
-            preprocess_image=False,
-            sparse_structure_sampler_params={
-                "steps": ss_sampling_steps,
-                "cfg_strength": ss_guidance_strength,
-            },
-            slat_sampler_params={
-                "steps": slat_sampling_steps,
-                "cfg_strength": slat_guidance_strength,
-            },
-        )
-        generated_mesh = outputs['mesh'][0]
-        saved_file = self.save_3d_asset(generated_mesh)
+        log.info("Starting 3d mesh generation.")
+        for (batch_number, image) in enumerate(normal_images):
+            numpy_image = 255. * image.cpu().numpy()
+            pil_image = Image.fromarray(numpy.clip(numpy_image, 0, 255).astype(numpy.uint8))
 
-        return saved_file
+            outputs = hi3dgen_pipeline.run(
+                pil_image,
+                seed=seed,
+                formats=["mesh",],
+                preprocess_image=False,
+                sparse_structure_sampler_params={
+                    "steps": ss_sampling_steps,
+                    "cfg_strength": ss_guidance_strength,
+                },
+                slat_sampler_params={
+                    "steps": slat_sampling_steps,
+                    "cfg_strength": slat_guidance_strength,
+                },
+            )
+            generated_mesh = outputs['mesh'][0]
+            saved_path = self.save_3d_asset(generated_mesh)
+
+        # FiXME we should return all the files in case of batch.
+        filename = saved_path.split("output/")[1]
+        return (filename,)
 
         @classmethod
         def IS_CHANGED(s, images, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps):
