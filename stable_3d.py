@@ -16,6 +16,8 @@ from hi3dgen.pipelines import Hi3DGenPipeline
 
 log = logging.getLogger(__name__)
 MAX_SEED = numpy.iinfo(numpy.int32).max
+log.info(f"Current spconv algo: {os.environ.get('SPCONV_ALGO')}")
+os.environ['SPCONV_ALGO'] = 'native'
 
 
 class Stable3DLoadModels:
