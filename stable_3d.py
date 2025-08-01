@@ -199,24 +199,32 @@ class Stable3DGenerate3D:
                     }
                 ),
                 "ss_guidance_strength": (
-                    "INT",
+                    "FLOAT",
                     {
-                        "default": 3,
-                        "tooltip": "The ss guidance strength"
+                        "default": 3.0,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.1,
+                        "tooltip": "The sparse structure guidance strength"
                     }
                 ),
                 "ss_sampling_steps": (
                     "INT",
                     {
                         "default": 50,
+                        "min": 1,
+                        "max": 50,
                         "step": 1,
-                        "tooltip": "The ss sampling steps. increasing the steps increase generation time"
+                        "tooltip": "The sparse structure sampling steps. increasing the steps increase generation time"
                     }
                 ),
                 "slat_guidance_strength": (
-                    "INT",
+                    "FLOAT",
                     {
-                        "default": 3,
+                        "default": 3.0,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.1,
                         "tooltip": ""
                     }
                 ),
@@ -224,6 +232,9 @@ class Stable3DGenerate3D:
                     "INT",
                     {
                         "default": 6,
+                        "min": 1,
+                        "max": 50,
+                        "step": 1,
                         "tooltip": "The slat sampling steps. increasing the steps increase generation time"
                     }
                 )
@@ -260,9 +271,9 @@ class Stable3DGenerate3D:
         hi3dgen_pipeline,
         normal_images,
         seed=-1,
-        ss_guidance_strength=3,
+        ss_guidance_strength=3.0,
         ss_sampling_steps=50,
-        slat_guidance_strength=3,
+        slat_guidance_strength=3.0,
         slat_sampling_steps=6
     ):
         if seed == -1:
