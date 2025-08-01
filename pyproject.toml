@@ -1,0 +1,25 @@
+[project]
+dependencies = [
+    "diffusers~=0.28",
+    "accelerate~=1.9",
+    "triton~=3.2",
+    "kornia~=0.8",
+    "timm~=0.6",
+    "transformers~=4.46",
+    "trimesh~=4.7",
+    "scikit-image~=0.25",
+]
+
+
+name = "ComfyUI-Stable3DGen"
+description = "A ComfyUI custom node to generate 3D assets using Stable3D"
+version = "1.0.0"
+license = { file = "LICENSE" }
+
+[project.urls]
+Repository = "https://github.com/lerignoux/ComfyUI-Stable3DGen.git"
+
+[tool.comfy]
+PublisherId = "lerignoux"
+DisplayName = "ComfyUI Stable3DGen"
+Icon = "https://avatars.githubusercontent.com/u/171443259?s=48&v=4"
