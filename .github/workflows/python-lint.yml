@@ -1,0 +1,39 @@
+name: Python Lint Check
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.9-alpine
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        # Update package manager and install required packages
+        apk update
+        apk add --no-cache findutils
+        python -m pip install --upgrade pip
+        pip install pycodestyle
+
+    - name: Show pycodestyle configuration
+      run: |
+        echo "Running pycodestyle with setup.cfg configuration:"
+        echo "- Max line length: 120"
+        echo "- Excluded directories: Stable3DGen/, __pycache__/"
+        echo "- Files being checked:"
+        find . -name "*.py" -not -path "./Stable3DGen/*" -not -path "./__pycache__/*"
+    
+    - name: Run pycodestyle
+      run: |
+        # Run pycodestyle using setup.cfg configuration
+        pycodestyle .
+        
