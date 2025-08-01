@@ -305,7 +305,7 @@ class Stable3DGenerate3D:
         filename = saved_path.split("output/")[1]
         return (filename,)
 
-        @classmethod
-        def IS_CHANGED(s, images, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps):
-            # FIXME We should properly handle re-generation depending on the input parameters.
-            return float("NaN")
+    @classmethod
+    def IS_CHANGED(s, images, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps):
+        # FIXME We should properly handle re-generation depending on the input parameters.
+        return float("NaN")
