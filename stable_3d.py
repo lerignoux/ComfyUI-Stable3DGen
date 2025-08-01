@@ -6,7 +6,6 @@ import sys
 import torch
 from huggingface_hub import snapshot_download
 from PIL import Image
-from torchvision.transforms.functional import pil_to_tensor
 from transformers import AutoModelForImageSegmentation
 
 import folder_paths
