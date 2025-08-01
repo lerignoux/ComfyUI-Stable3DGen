@@ -11,7 +11,7 @@ from transformers import AutoModelForImageSegmentation
 import folder_paths
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Stable3DGen'))
-from hi3dgen.pipelines import Hi3DGenPipeline
+from hi3dgen.pipelines import Hi3DGenPipeline  # noqa E402
 
 log = logging.getLogger(__name__)
 MAX_SEED = numpy.iinfo(numpy.int32).max
@@ -95,7 +95,11 @@ class Stable3DLoadModels:
             log.info(f"Already cached at: {local_path}")
             return local_path
         log.info(f"Downloading and caching model: {model_id} to trellis model folder")
-        local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
+        local_path = snapshot_download(
+            repo_id=model_id,
+            local_dir=os.path.join(self.models_path, model_id),
+            force_download=False
+        )
         return local_path
 
     @set_spconv_algo
@@ -112,7 +116,13 @@ class Stable3DLoadModels:
             loaded_models.append(self.download_model(model_id))
         # Loads yoso pedictor model to ~/models/trellis and StableNormal_turbo predictor library to ~/.cache/torch/hub/
         yozo_model_folder = os.path.join(self.models_path, "Stable-X")
-        normal_predictor = torch.hub.load("hugoycj/StableNormal", "StableNormal_turbo", trust_repo=True, yoso_version='yoso-normal-v1-8-1', local_cache_dir=yozo_model_folder)
+        normal_predictor = torch.hub.load(
+            "hugoycj/StableNormal",
+            "StableNormal_turbo",
+            trust_repo=True,
+            yoso_version='yoso-normal-v1-8-1',
+            local_cache_dir=yozo_model_folder
+        )
         # download dinov2 feature detection model and library to ~/.cache/torch/hub/
         torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_reg', pretrained=True)
 
@@ -319,6 +329,10 @@ class Stable3DGenerate3D:
         return (filename,)
 
     @classmethod
-    def IS_CHANGED(s, images, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps):
+    def IS_CHANGED(
+        s, images, seed,
+        ss_guidance_strength, ss_sampling_steps,
+        slat_guidance_strength, slat_sampling_steps
+    ):
         # FIXME We should properly handle re-generation depending on the input parameters.
         return float("NaN")
