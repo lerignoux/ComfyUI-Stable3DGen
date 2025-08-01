@@ -16,8 +16,20 @@ from hi3dgen.pipelines import Hi3DGenPipeline
 
 log = logging.getLogger(__name__)
 MAX_SEED = numpy.iinfo(numpy.int32).max
-log.info(f"Current spconv algo: {os.environ.get('SPCONV_ALGO')}")
-os.environ['SPCONV_ALGO'] = 'native'
+
+
+def set_spconv_algo(func):
+    def wrapper(*args, **kwargs):
+        old_spconv_algo = os.environ.get('SPCONV_ALGO')
+        os.environ['SPCONV_ALGO'] = 'native'
+        try:
+            return func(*args, **kwargs)
+        finally:
+            if old_spconv_algo is None:
+                del os.environ['SPCONV_ALGO']
+            else:
+                os.environ['SPCONV_ALGO'] = old_spconv_algo
+    return wrapper
 
 
 class Stable3DLoadModels:
@@ -87,6 +99,7 @@ class Stable3DLoadModels:
         local_path = snapshot_download(repo_id=model_id, local_dir=os.path.join(self.models_path, model_id), force_download=False)
         return local_path
 
+    @set_spconv_algo
     def load_models(self, trellis_model, normal_model, birefnet_model):
         """
         Load weights locally if missing.
@@ -266,6 +279,7 @@ class Stable3DGenerate3D:
 
         return mesh_path
 
+    @set_spconv_algo
     def generate_3d(
         self,
         hi3dgen_pipeline,
