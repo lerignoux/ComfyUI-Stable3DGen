@@ -1,20 +1,19 @@
 --extra-index-url https://download.pytorch.org/whl/cu124
+scikit-image~=0.25
+spconv-cu120==2.3.6
+torch==2.5.1
+torchaudio==2.5.1
+torchsde==0.2.6
+torchvision==0.20.1
+trimesh~=4.7
+xformers~=0.0
+
 # For StableNormal
 diffusers~=0.28
 accelerate~=1.9
-triton
+triton~=3.1
 
 # For BirefNet
 kornia~=0.8
 timm~=0.6
 transformers~=4.46
-
-trimesh~=4.7
-scikit-image~=0.25
-xformers~=0.0
-
-torch==2.5.1
-torchaudio==2.5.1
-torchvision==0.20.1
-torchsde
-spconv-cu120==2.3.6

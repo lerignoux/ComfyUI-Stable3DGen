@@ -1,13 +1,19 @@
 [project]
 dependencies = [
+    "scikit-image~=0.25",
+    "spconv-cu120==2.3.6",
+    "torch==2.5.1",
+    "torchaudio==2.5.1",
+    "torchsde==0.2.6",
+    "torchvision==0.20.1",
+    "trimesh~=4.7",
+    "xformers~=0.0",
     "diffusers~=0.28",
     "accelerate~=1.9",
-    "triton~=3.2",
+    "triton=~3.1",
     "kornia~=0.8",
     "timm~=0.6",
-    "transformers~=4.46",
-    "trimesh~=4.7",
-    "scikit-image~=0.25",
+    "transformers~=4.46"
 ]
 
 
