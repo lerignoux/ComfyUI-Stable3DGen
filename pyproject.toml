@@ -13,9 +13,8 @@ dependencies = [
     "triton=~3.1",
     "kornia~=0.8",
     "timm~=0.6",
-    "transformers~=4.46"
+    "transformers~=4.46",
 ]
-
 
 name = "ComfyUI-Stable3DGen"
 description = "A ComfyUI custom node to generate 3D assets using Stable3D"
