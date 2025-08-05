@@ -126,8 +126,7 @@ class Stable3DLoadModels:
         # download dinov2 feature detection model and library to ~/.cache/torch/hub/
         torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_reg', pretrained=True)
 
-        trellis_folder = folder_paths.get_folder_paths("trellis")[0]
-        hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained(os.path.join(trellis_folder, trellis_model))
+        hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained(os.path.join(self.models_path, trellis_model))
         hi3dgen_pipeline.cuda()
 
         self.load_birefnet_model(hi3dgen_pipeline, birefnet_model)
