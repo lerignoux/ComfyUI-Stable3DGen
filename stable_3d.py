@@ -8,6 +8,7 @@ from huggingface_hub import snapshot_download
 from PIL import Image
 from transformers import AutoModelForImageSegmentation
 
+from comfy.utils import common_upscale
 import folder_paths
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Stable3DGen'))
@@ -153,7 +154,7 @@ class Stable3DPreprocessImage:
                     "STABLE3D_NORMAL",
                     {"tooltip": "The normal predictor model to generate the image normal."}
                 ),
-                "image": ("IMAGE",)
+                "images": ("IMAGE",)
             },
         }
 
@@ -179,19 +180,36 @@ class Stable3DPreprocessImage:
         log.debug(f"normal_image saved as {path}")
         return path
 
-    def preprocess_image(self, hi3dgen_pipeline, normal_predictor, image):
-        # FIXME We should support properly batch mode here.
-        numpy_image = image.squeeze(0).cpu().numpy()
-        numpy_image_scaled = numpy.clip(numpy_image * 255, 0, 255).astype(numpy.uint8)
-        image = Image.fromarray(numpy_image_scaled)
+    @staticmethod
+    def uniformize_images(images):
+        for index in range(1, len(images)):
+            if images[index].shape[1:] != images[0].shape[1:]:
+                images[index] = common_upscale(
+                    images[index].movedim(-1, 1),
+                    images[0].shape[2],
+                    images[0].shape[1],
+                    "bilinear",
+                    "center"
+                ).movedim(1, -1)
+        return images
 
-        # FIXME We should properly handle batch here.
-        image = hi3dgen_pipeline.preprocess_image(image, resolution=1024)
-        normal_image = normal_predictor(image, resolution=768, match_input_resolution=True, data_type='object')
+    def preprocess_image(self, hi3dgen_pipeline, normal_predictor, images):
+        normal_images = []
+        for (_, img) in enumerate(images):
+            numpy_image = 255. * img.cpu().numpy()
+            numpy_image_scaled = Image.fromarray(numpy.clip(numpy_image, 0, 255).astype(numpy.uint8))
 
-        self.save_normal_image(normal_image)
+            image = hi3dgen_pipeline.preprocess_image(numpy_image_scaled, resolution=1024)
+            normal_image = normal_predictor(image, resolution=768, match_input_resolution=True, data_type='object')
 
-        return (self.pil_to_tensor(normal_image),)
+            self.save_normal_image(normal_image)
+            normal_images.append(self.pil_to_tensor(normal_image))
+
+        if len(normal_images) > 1:
+            output_image = torch.cat(self.uniformize_images(normal_images), dim=0)
+        else:
+            output_image = normal_images[0]
+        return (output_image,)
 
 
 class Stable3DGenerate3D:
@@ -302,28 +320,36 @@ class Stable3DGenerate3D:
             seed = numpy.random.randint(0, MAX_SEED)
 
         log.info("Starting 3d mesh generation.")
-        for (batch_number, image) in enumerate(normal_images):
+        pil_input = []
+        for (_, image) in enumerate(normal_images):
             numpy_image = 255. * image.cpu().numpy()
-            pil_image = Image.fromarray(numpy.clip(numpy_image, 0, 255).astype(numpy.uint8))
+            pil_input.append(Image.fromarray(numpy.clip(numpy_image, 0, 255).astype(numpy.uint8)))
 
-            outputs = hi3dgen_pipeline.run(
-                pil_image,
-                seed=seed,
-                formats=["mesh",],
-                preprocess_image=False,
-                sparse_structure_sampler_params={
-                    "steps": ss_sampling_steps,
-                    "cfg_strength": ss_guidance_strength,
-                },
-                slat_sampler_params={
-                    "steps": slat_sampling_steps,
-                    "cfg_strength": slat_guidance_strength,
-                },
-            )
-            generated_mesh = outputs['mesh'][0]
-            saved_path = self.save_3d_asset(generated_mesh)
+        method = 'run'
+        if len(pil_input) == 1:
+            pil_input = pil_input[0]
+        elif len(pil_input) > 1:
+            method = 'run_multi_image'
+        else:
+            raise ValueError("No image provided to run 3d pipeline.")
 
-        # FiXME we should return all the files in case of batch.
+        outputs = getattr(hi3dgen_pipeline, method)(
+            pil_input,
+            seed=seed,
+            formats=["mesh",],
+            preprocess_image=False,
+            sparse_structure_sampler_params={
+                "steps": ss_sampling_steps,
+                "cfg_strength": ss_guidance_strength,
+            },
+            slat_sampler_params={
+                "steps": slat_sampling_steps,
+                "cfg_strength": slat_guidance_strength,
+            },
+        )
+        generated_mesh = outputs['mesh'][0]
+        saved_path = self.save_3d_asset(generated_mesh)
+
         filename = saved_path.split("output/")[1]
         return (filename,)
 
